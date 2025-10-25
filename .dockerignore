@@ -1,0 +1,17 @@
+Abaikan folder data lokal (berisi SQLite)
+
+data/
+
+Abaikan cache Python
+
+pycache/
+*.pyc
+
+Abaikan cache Pytest
+
+.pytest_cache/
+
+Abaikan folder venv jika ada
+
+venv/
+.venv/

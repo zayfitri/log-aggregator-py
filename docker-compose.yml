@@ -1,0 +1,49 @@
+# f. Docker Compose (Opsional, +10%)
+# Jalankan dengan: docker-compose up --build
+
+version: '3.8'
+
+services:
+  # --- Service 1: Aggregator (Server API Utama) ---
+  aggregator:
+    build: .  # Build dari Dockerfile di folder ini
+    container_name: aggregator-service
+    ports:
+      - "8080:8080"  # Map port host ke container
+    volumes:
+      # Mount 'data' folder untuk persistensi SQLite
+      # ./data (di host) -> /app/data (di container)
+      - ./data:/app/data
+    restart: on-failure
+    healthcheck:
+      # Cek apakah server FastAPI sudah berjalan
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # --- Service 2: Publisher (Menjalankan Stress Test) ---
+  publisher:
+    build: .  # Menggunakan image yang sama
+    container_name: publisher-client
+    # 'command' ini akan menimpa 'CMD' dari Dockerfile
+    command: >
+      sh -c "
+        echo 'Publisher menunggu Aggregator siap...' &&
+        sleep 15 && # Beri waktu ekstra 15 detik untuk aggregator siap
+        echo 'Aggregator siap. Publisher memulai pengiriman...' &&
+        python tools/stress_test.py
+      "
+    environment:
+      # Beri tahu publisher URL aggregator
+      # 'aggregator' adalah nama service di atas
+      - AGGREGATOR_API_URL=http://aggregator:8080/publish
+    depends_on:
+      aggregator:
+        condition: service_healthy # Hanya mulai jika healthcheck aggregator OK
+    restart: no # Hanya jalankan sekali
+
+volumes:
+  data:
+    # Definisikan volume 'data'
