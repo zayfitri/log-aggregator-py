@@ -1,125 +1,67 @@
-<<<<<<< HEAD
-UTS Sistem Terdistribusi - Pub-Sub Log Aggregator
+# UTS Sistem Terdistribusi: Pub-Sub Log Aggregator
+Proyek ini adalah implementasi layanan log aggregator sederhana menggunakan arsitektur publish-subscribe internal, dibangun sebagai tugas Ujian Tengah Semester (UTS) mata kuliah Sistem Paralel dan Terdistribusi.
 
-Proyek ini adalah implementasi layanan log aggregator dengan idempotent consumer dan deduplikasi, sesuai spesifikasi UTS.
+Fitur utama meliputi penerimaan event log, idempotent consumer untuk mencegah pemrosesan ganda, deduplication menggunakan SQLite, dan persistensi data saat container restart. Seluruh sistem berjalan di Docker dan Docker Compose.
 
-Fitur Utama
+Nama: Isnaini Zayyana Fitri
+NIM: 11221072
 
-API Server (FastAPI): Menerima event tunggal atau batch via POST /publish.
-
-Async Consumer: Memproses event secara asinkron menggunakan asyncio.Queue.
-
-Idempotency & Deduplication: Menggunakan SQLite dengan PRIMARY KEY (topic, event_id) untuk mencegah pemrosesan duplikat.
-
-Persistensi: Deduplication store (SQLite) bersifat persisten dan tahan restart (disimpan di file data/dedup_store.db).
-
-Observability: Menyediakan endpoint GET /stats dan GET /events untuk memantau sistem.
-
-Containerized: Sepenuhnya berjalan di dalam Docker.
-
-Bonus: Termasuk docker-compose.yml untuk orkestrasi aggregator dan publisher.
-
-Struktur Proyek
-
-.
-├── data/                  # Folder untuk database SQLite (dibuat otomatis)
-├── src/
-│   ├── __init__.py
-│   ├── main.py            # Aplikasi FastAPI, API endpoints, consumer task
-│   ├── models.py          # Model Pydantic (Skema Event)
-│   └── database.py        # Logika interaksi SQLite (deduplikasi)
-├── tests/
-│   └── test_main.py       # Unit tests (pytest)
-├── tools/
-│   └── stress_test.py     # Script stress test (5000+ events)
-├── Dockerfile             # Wajib: Resep untuk build image
-├── docker-compose.yml     # Opsional (Bonus): Menjalankan aggregator + publisher
-├── requirements.txt       # Dependensi Python
-├── report.md              # Laporan Analisis Teori (T1-T8)
-└── README.md              # File ini
+# Teknologi yang Digunakan:
+Python 3.11
+FastAPI
+asyncio (asyncio.Queue)
+SQLite3
+Docker & Docker Compose
+Pytest, httpx, pytest-asyncio, anyio
 
 
-Cara Menjalankan
+# Cara Menjalankan
+Prasyarat:
+Docker Engine dan Docker Compose terinstall.
+Terminal (CMD, PowerShell, bash, dll).
 
-Ada dua cara untuk menjalankan proyek ini:
+Langkah-langkah:
+1. Clone Repository (jika belum):
+git clone [https://github.com/zayfitri/log-aggregator-py.git](https://github.com/zayfitri/log-aggregator-py.git)
+cd log-aggregator-py
 
-Opsi 1: Menggunakan Docker Compose (Direkomendasikan, untuk Bonus)
-
-Cara ini akan otomatis menjalankan service aggregator DAN service publisher (stress_test.py) yang akan mengirim 5.000 event.
-
-Pastikan Docker dan Docker Compose terinstal.
-
-Buka terminal di root folder proyek ini.
-
-Jalankan build dan run:
-
+2. Jalankan Build & Stress Test (Publisher + Aggregator):
+Perintah ini akan membangun image Docker dan menalankan  kedua service. Publisher akan mengirim 5000 event (dengan ~20% duplikasi) ke Aggregator.
 docker-compose up --build
+- Amati log untuk melihat proses penerimaan, deduplikasi (UNIK vs DUPLIKAT).
+- Tunggu hingga publisher selesai (log publisher-client exited with code 0).
+- Sebelum mematikan, Anda bisa cek http://localhost:8080/stats di browser untuk melihat statistik awal (received ~5000).
+- Tekan Ctrl + C untuk menghentikan semua service.
 
+3. Jalankan Aggregator Saja (Untuk Cek Persistensi):
+Perintah ini hanya akan menjalankan service aggregator.
+docker-compose up aggregator
+- Server akan membaca ulang data dari data/dedup_store.db.
+- Buka browser Anda untuk memeriksa hasil akhir:
+    - http://localhost:8080/stats (Akan menunjukkan unique_processed (total) ~4000).
+    - http://localhost:8080/events?topic=auth.prod (Akan menampilkan daftar event unik).
+    - http://localhost:8080/events?topic=payment.dev
+    - http://localhost:8080/events?topic=logs.staging
+- Tekan Ctrl + C untuk menghentikan server jika sudah selesai.
 
-Anda akan melihat log dari aggregator-service (server siap) dan publisher-client (mengirim event).
+4. Jalankan Unit Tests:
+Perintah ini akan menjalankan 6 unit test menggunakan pytest di dalam container baru.
+docker-compose run --build --rm aggregator python -m pytest
+- Pastikan hasilnya menunjukkan ======= 6 passed =======.
 
-Setelah publisher selesai, server akan tetap berjalan.
+# Endpoint API
+- POST /publish: Menerima satu atau batch event JSON.
+    - Body (Single): { "topic": "...", "event_id": "...", ... }
+    - Body (Batch): [{...}, {...}, ...]
+    - Respons Sukses: 202 Accepted
+- GET /stats: Mengembalikan statistik pemrosesan event.
+- GET /events: Mengembalikan daftar semua event unik yang telah diproses.
+- GET /events?topic={nama_topic}: Mengembalikan daftar event unik yang telah diproses untuk topic tertentu.
+- GET /: Endpoint root untuk health check.
 
-Opsi 2: Menggunakan Docker Saja (Manual)
+# Video Demo
+Demonstrasi lengkap sistem ini dapat dilihat di YouTube:
+[https://youtu.be/Emw6gazfT4k?si=-aMhJfsy-7xADMdY]
 
-Cara ini hanya menjalankan service aggregator. Anda harus menjalankan publisher (stress test) secara manual dari host Anda.
-
-1. Build Image
-Sesuai instruksi:
-
-docker build -t uts-aggregator .
-
-
-2. Run Container
-Sesuai instruksi. Perintah -v $(pwd)/data:/app/data penting untuk menyimpan database di host Anda (agar persisten).
-
-# Untuk Linux/macOS
-docker run -d -p 8080:8080 -v $(pwd)/data:/app/data --name aggregator uts-aggregator
-
-# Untuk Windows (Command Prompt)
-docker run -d -p 8080:8080 -v "%cd%/data":/app/data --name aggregator uts-aggregator
-
-
-Server Anda sekarang berjalan di http://127.0.0.1:8080.
-
-3. Jalankan Stress Test (Manual)
-Buka terminal kedua di host Anda dan jalankan script stress_test.py:
-
-pip install -r requirements.txt
-python tools/stress_test.py
-
-
-Endpoint API (Setelah Server Berjalan)
-
-Dokumentasi Interaktif: http://127.0.0.1:8080/docs
-
-Publish Event: POST /publish
-
-Lihat Statistik: http://127.0.0.1:8080/stats
-
-Lihat Event Unik: http://127.0.0.1:8080/events
-
-Filter Event: http://127.0.0.1:8080/events?topic=auth.prod
-
-Menjalankan Unit Tests
-
-Pastikan Anda berada di root proyek.
-
-Instal dependencies (termasuk pytest).
-
-pip install -r requirements.txt
-
-
-Jalankan pytest:
-
-pytest
-
-
-Link Video Demo
-
-(Sesuai instruksi, unggah video demo 5-8 menit ke YouTube dan letakkan link-nya di sini)
-
-[LINK_VIDEO_YOUTUBE_ANDA_DI_SINI]
-=======
-# log-aggregator-py
->>>>>>> 86edee2daa01813b783ca07b8b18fbfdfa354c97
+# Laporan Proyek
+Penjelasan detail mengenai desain, analisis teori, analisis performa, dan keterkaitan dengan buku utama dapat ditemukan dalam file **report.pdf**
