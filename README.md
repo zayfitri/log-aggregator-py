@@ -6,6 +6,8 @@ Fitur utama meliputi penerimaan event log, idempotent consumer untuk mencegah pe
 Nama: Isnaini Zayyana Fitri
 NIM: 11221072
 
+
+
 # Teknologi yang Digunakan:
 Python 3.11
 FastAPI
@@ -13,6 +15,7 @@ asyncio (asyncio.Queue)
 SQLite3
 Docker & Docker Compose
 Pytest, httpx, pytest-asyncio, anyio
+
 
 
 # Cara Menjalankan
@@ -25,6 +28,7 @@ Langkah-langkah:
 git clone [https://github.com/zayfitri/log-aggregator-py.git](https://github.com/zayfitri/log-aggregator-py.git)
 cd log-aggregator-py
 
+
 2. Jalankan Build & Stress Test (Publisher + Aggregator):
 Perintah ini akan membangun image Docker dan menalankan  kedua service. Publisher akan mengirim 5000 event (dengan ~20% duplikasi) ke Aggregator.
 docker-compose up --build
@@ -32,6 +36,7 @@ docker-compose up --build
 - Tunggu hingga publisher selesai (log publisher-client exited with code 0).
 - Sebelum mematikan, Anda bisa cek http://localhost:8080/stats di browser untuk melihat statistik awal (received ~5000).
 - Tekan Ctrl + C untuk menghentikan semua service.
+
 
 3. Jalankan Aggregator Saja (Untuk Cek Persistensi):
 Perintah ini hanya akan menjalankan service aggregator.
@@ -44,10 +49,13 @@ docker-compose up aggregator
     - http://localhost:8080/events?topic=logs.staging
 - Tekan Ctrl + C untuk menghentikan server jika sudah selesai.
 
+
 4. Jalankan Unit Tests:
 Perintah ini akan menjalankan 6 unit test menggunakan pytest di dalam container baru.
 docker-compose run --build --rm aggregator python -m pytest
 - Pastikan hasilnya menunjukkan ======= 6 passed =======.
+
+
 
 # Endpoint API
 - POST /publish: Menerima satu atau batch event JSON.
@@ -59,9 +67,13 @@ docker-compose run --build --rm aggregator python -m pytest
 - GET /events?topic={nama_topic}: Mengembalikan daftar event unik yang telah diproses untuk topic tertentu.
 - GET /: Endpoint root untuk health check.
 
+
+
 # Video Demo
 Demonstrasi lengkap sistem ini dapat dilihat di YouTube:
 [https://youtu.be/Emw6gazfT4k?si=-aMhJfsy-7xADMdY]
+
+
 
 # Laporan Proyek
 Penjelasan detail mengenai desain, analisis teori, analisis performa, dan keterkaitan dengan buku utama dapat ditemukan dalam file **report.pdf**
